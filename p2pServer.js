@@ -18,8 +18,7 @@ initP2PServer(6002)
 initP2PServer(6003)
 
 
-//initConnection 원장을 주고받을때 그 대상(거래당사자들) 뿐만 아니라 다른 참여자(다수)에게도 연결?(통신?)이 되게 하려함
-// 일단 모두에게 통신은 아니고 일부 let sockets 배열 안에 있는 인원만 통신되게
+
 function initConnection(ws) {
     sockets.push(ws._url)
 }
