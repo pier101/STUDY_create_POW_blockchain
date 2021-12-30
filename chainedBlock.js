@@ -103,4 +103,16 @@ function addBlock(bodyData){
 // addBlock(['transaction3'])
 console.log(Blocks)
 
+const replaceChain = (newBlocks) => {
+    if (isValidChain(newBlocks) &&
+        getAccumulatedDifficulty(newBlocks) > getAccumulatedDifficulty(getBlockchain())) {
+        console.log('Received blockchain is valid. Replacing current blockchain with received blockchain');
+        blockchain = newBlocks;
+        p2p_1.broadcastLatest();
+    }
+    else {
+        console.log('Received blockchain invalid');
+    }
+};
+
 module.exports ={Blocks, createHash,getLastBlock,nextBlock,getBlocks,getVersion,addBlock}
