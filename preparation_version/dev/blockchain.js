@@ -1,12 +1,10 @@
-class Blockchain{
-    constructor(){
+function Block(){
         this.chain = [];
         this.newTransactions= [];
-    }
 }
 
 //블록체인 프로토 타입 함수 정의
-Blockchain.prototype.createNewBlock = (nonce, previousBlockHash,hash)=>{
+Block.prototype.createNewBlock = (nonce, previousBlockHash,hash)=>{
     //새 블록 객체
     const newBlock = {
         index : this.length + 1,
@@ -23,3 +21,6 @@ Blockchain.prototype.createNewBlock = (nonce, previousBlockHash,hash)=>{
 
     return newBlock
 } 
+
+// Block 모듈화
+module.exports = Block;
