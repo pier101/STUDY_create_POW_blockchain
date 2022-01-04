@@ -1,8 +1,6 @@
 const WebSocket = require('ws')
-const {Server} = require('ws')
-const { addBlock } = require('../211229/checkValidBlock')
-const { getBlocks, getLastBlock, createHash } = require('./chainedBlock')
-
+const { getLastBlock} = require('./blockchain')
+const BC = require('./blockchain')
 const sockets = []
 
 function initP2PServer(p2p_port){
@@ -23,7 +21,8 @@ function sendBlock(block){
 
 
 function initConnection(ws) {
-    sockets.push(ws._url)
+    console.log("ws가 뭘까? ",ws)
+    sockets.push(ws);
     initMessageHandler(ws)
     initErrorHandler(ws)
     write(ws, queryLatestMsg());
@@ -37,6 +36,9 @@ function  getSockets(){
 function write(ws, message){
     ws.send(JSON.stringify(message)) 
 }
+const broadcastLatest = () => {
+    broadcast(responseLatestMsg());
+};
 
 // 통신이 되어있는 노드 모두에게 메세지 전달
 function broadcast(message) {
@@ -71,7 +73,7 @@ function initMessageHandler(ws){
     ws.on("message",(data)=>{
         console.log("메세지에 온 데이터 : ", data,"  3001")
         const message = JSON.parse(data)
-        console.log('메세지 왔어요 3001' + JSON.stringify(message));
+        console.log('메세지 왔어요 3001' + message);
         switch (message.type) {
             case MessageType.QUERY_LATEST:
                 console.log("메세지 0  3001")
@@ -97,13 +99,13 @@ function initMessageHandler(ws){
 function responseLatestMsg(){
     return ({
         "type": MessageType.RESPONSE_BLOCKCHAIN,
-        "data": JSON.stringify([getLastBlock()]) 
+        "data": JSON.stringify([()=>getLastBlock()]) 
     })
 }
 function responseAllChainMsg(){
     return ({
         "type": MessageType.RESPONSE_BLOCKCHAIN,
-        "data": JSON.stringify(getBlocks()) 
+        "data": JSON.stringify(BC.getBlocks()) 
     })
 }
 
@@ -111,7 +113,10 @@ function responseAllChainMsg(){
 function handleBlockChainResponse(message){
     const receiveBlocks =JSON.parse(message.data)
     const latestRecieveBlock = receiveBlocks[receiveBlocks.length - 1]
-    const latestMyBlock = getLastBlock()
+    console.log("블락",latestRecieveBlock)
+    console.log("헤더",latestRecieveBlock.header)
+    console.log("헤더인덱스",latestRecieveBlock.header.index)
+    const latestMyBlock = ()=>getLastBlock()
     // 데이터로 받은 블록 중에 마지막 블럭의 인덱스가 내가 보유 중인 마지막 블럭의 인덱스보다 클 떄/작을떄
     // 작으면 굳이 가져올 필요 없음
     if (latestRecieveBlock.header.index > latestMyBlock.header.index){
@@ -129,7 +134,7 @@ function handleBlockChainResponse(message){
             broadcast(queryAllMsg()) //전체를 다시 달라고 요청
         }
         else { //통째로 갈아끼워야하는 상황
-            replaceChain(receiveBlocks)
+            BC.replaceChain(receiveBlocks)
         }
     } 
     else {
@@ -161,6 +166,5 @@ function closeConnection(ws){
     console.log(`Connection close ${ws.url}`)
     sockets.splice(sockets.indexOf(ws), 1) //초기화
 }
-module.exports = {connectToPeers,getSockets,initP2PServer}
+module.exports = {connectToPeers,getSockets,initP2PServer,broadcast,broadcastLatest}
 
-//피어저장해놨고
