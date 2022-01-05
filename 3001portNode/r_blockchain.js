@@ -1,18 +1,23 @@
+
+// 블록의 생성, 검증, 합의 알고리즘을 포함 / 프로토콜을 변경하려면 여기서 수정
+
 const fs = require('fs')
-const merkle = require('merkle')
 const cryptojs = require('crypto-js')
+const merkle = require('merkle')
 const random = require('random');
-const p2pserver = require('./p2pServer')
 
 const BLOCK_GENERATION_INTERVAL = 10 //블록이 생성되는 간격 10초
 const DIFFICULTY_ADJUSTMENT_INTERVAL = 10 //  난이도가 조정되는 간격 10개마다
 
+// 블록 구조 설정
 class Block{
 	constructor(header, body){
 		this.header = header
 		this.body = body
 	}
 }
+
+// 블록 헤더 구조 설정
 class BlockHeader{
 	constructor(version,index, previousHash, timestamp, merkleRoot,difficulty,nonce){
 		this.version = version
@@ -25,13 +30,15 @@ class BlockHeader{
 	}
 }
 
+// 호출용 함수 ) 버전 불러오기
 function getVersion(){
 	const package = fs.readFileSync("package.json");
 	//console.log(JSON.parse(package).version);
 	return JSON.parse(package).version;
 }
-
 //console.log("버전 : ",getVersion())
+
+// 블럭 생성 함수) 제네시스 블럭 생성
 function createGenesisBlock(){  //초기 블록 생성하는 함수
 	const version = getVersion()
 	const index = 0
@@ -52,22 +59,25 @@ function createGenesisBlock(){  //초기 블록 생성하는 함수
 	const header = new BlockHeader(version,index, previousHash, timestamp, merkleRoot,difficulty,nonce)
 	return new Block(header, body)
 }
-
-const block = createGenesisBlock()
-//console.log("Genesis Block : ",block)
+// const block = createGenesisBlock()
 
 
+//블록체인 배열 선언 및 초기 제네시스블록 삽입.
 let Blocks = [createGenesisBlock()]
+//console.log("Genesis Block : ",Block)
 
+// 호출용 함수) 블록체인 안의 모든 블록 불러오기
 function getBlocks(){ 
 	return Blocks
 }
 //console.log(getBlocks())
 
+// 호출용 함수) 마지막 블록 불러오기
 function getLastBlock(){
 	return Blocks[Blocks.length - 1]
 }
 
+// 해시화 함수) 이전 블록 해시화 할 용도
 function createHash(data){
 	const {version, previousHash,index, timestamp, merkleRoot,difficulty,nonce} = data.header
 	const blockString = version + index + previousHash + timestamp + merkleRoot + difficulty + nonce
@@ -75,7 +85,7 @@ function createHash(data){
 	return hash
 }
 
-
+// 해시화 함수)  블록 생성시 헤더값 해시화할 용도 
 function calculateHash(version, previousHash,index, timestamp, merkleRoot,difficulty,nonce){
 	const blockString = version + index + previousHash + timestamp + merkleRoot + difficulty + nonce
 	const hash = cryptojs.SHA256(blockString).toString()
@@ -86,6 +96,7 @@ function calculateHash(version, previousHash,index, timestamp, merkleRoot,diffic
 //console.log(Blocks)
 //console.log(testHash)
 
+// 블럭 생성 함수) 새로운 블럭 생성
 function nextBlock(bodyData){
 	const prevBlock = getLastBlock()
 	const version = getVersion()
@@ -104,6 +115,7 @@ function nextBlock(bodyData){
 }
 
 //=====================유효성 검증 코드들========================
+// 검증 함수) 블록 구조 검증
 function isValidBlockStructure(block){
     return typeof(block.header.version) === 'string'
         && typeof(block.header.index) === 'number'
@@ -115,7 +127,9 @@ function isValidBlockStructure(block){
         && typeof(block.body) === 'object'
 }
 
+// 검증 함수) 새로 생성한 블록 검증
 function isValidNewBlock(newBlock, previousBlock){
+	console.log("프리비어스 블록",previousBlock);
     if (isValidBlockStructure(newBlock) == false) {
         console.log('invalid Block Structure');
         return false;
@@ -144,15 +158,17 @@ function isValidNewBlock(newBlock, previousBlock){
     }
     return true;
 }
+
+// 검증 함수) 다른 노드의 체인으로 교체시 체인 검증 
 function isValidChain(newBlocks) {
     //제네시스 확인
     //제네시스 블록이랑  다르면 다른걸 확인할 필요도 없음
-    if (JSON.stringify(newBlocks[0]) !== JSON.stringify(BC.Blocks[0])){
+    if (JSON.stringify(newBlocks[0]) !== JSON.stringify(Blocks[0])){
         return false;
     }
 
-    var tempBlocks = [newBlocks[0]];
-    for (var i = 0; i < newBlocks.length; i++) {
+    var tempBlocks = [newBlocks[1]];
+    for (var i = 1; i < newBlocks.length; i++) {
        if (isValidNewBlock(newBlocks[i],tempBlocks[i - 1])){
            tempBlocks.push(newBlocks[i])
        }
@@ -163,7 +179,10 @@ function isValidChain(newBlocks) {
     return true
 }
 //========================================================
+
+// 블록 생성 함수) 생성한 블록을 체인에 합류시키는 함수
 function addBlock(newBlock){
+	const p2pserver = require('./r_network')
     if (isValidNewBlock(newBlock, getLastBlock())) {
         Blocks.push(newBlock);
 		p2pserver.broadcastLatest()
@@ -175,9 +194,12 @@ function addBlock(newBlock){
 // addBlock(['transaction1'])
 // addBlock(['transaction2'])
 // addBlock(['transaction3'])
-console.log(Blocks)
+//console.log(Blocks)
 
+// 체인 교체 함수
 const replaceChain = (newBlocks) => {
+	const p2pserver = require('./r_network')
+	console.log(newBlocks)
     if (isValidChain(newBlocks)){
 		if ((newBlocks.length > Blocks.length) 
 		||(newBlocks.length === Blocks.length) && random.boolean()) {
@@ -190,7 +212,7 @@ const replaceChain = (newBlocks) => {
     }
 };
 
-//16진수로 되어있는 값을 2진수로
+// 유틸 함수) 16진수 -> 2진수 변경
 function hexToBinary(s){
 	const lookupTable = {
 		'0': '0000', '1' : '0001', '2': '0010','3': '0011',
@@ -207,6 +229,7 @@ function hexToBinary(s){
 	}
 	return ret;
 }
+
 
 function hashMatchesDifficulty(hash,difficulty){
 	const hashBinary = hexToBinary(hash.toUpperCase())
@@ -262,8 +285,8 @@ function getCurrentTimestamp(){
 	// Math.round() :소수점이하 값 반올림하는 함수
 }
 function isValidTimestamp(newBlock,prevBlock){
-	return (prevBlock.header.timestamp - 60 < newBlock.header.timestamp ) 
-	&& newBlock.header.timestamp - 60 < getCurrentTimestamp()
+	return ( (newBlock.header.timestamp - prevBlock.header.timestamp) > 60 ) 
+	&& getCurrentTimestamp() - newBlock.header.timestamp  < 60
 }
 //>isValidNewBlock에 검증 추가하기
 
@@ -277,4 +300,15 @@ module.exports ={
 	addBlock,
 	replaceChain,
 	hashMatchesDifficulty,
+	isValidBlockStructure
 }
+
+//코드정리후
+/*
+	웹페이지 
+	블록 마이닝
+	지갑 생성해서 연결된 다른 노드들과 블록체인을 교환
+	현재 블록들의 상황 시각화
+	지갑의 최신화된 블록은 몇 개고..
+	종료해도 데이터 남아있도록 db연결
+*/

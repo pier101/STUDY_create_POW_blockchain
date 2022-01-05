@@ -1,3 +1,6 @@
+// 비밀키와 공개키를 관리. 지갑에서부터 비밀키를 가져오거나 공개키를 생성,
+// 새로운 비밀키를 생성하거나 있으면 기존 파일에서 읽어오는 기능
+
 const fs = require('fs');
 const ecdsa = require('elliptic')  // 타원 곡선 디지털 서명 알고리즘
 const ec = new ecdsa.ec("secp256k1");
@@ -10,6 +13,7 @@ function initWallet(){
         console.log("기존 지갑 private key 경로 : " + privateKeyFile);
         return;
     }
+    
     if (!fs.existsSync("wallet/")) {
         fs.mkdirSync("wallet/")
     }
