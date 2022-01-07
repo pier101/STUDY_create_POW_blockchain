@@ -1,5 +1,9 @@
-//HTTP server 초기화 , P2P server 초기화 , 지갑 초기화
+
+
+// [ HTTP server 초기화 , P2P server 초기화 , 지갑 초기화 ]
 // (사용자와 노드 간의 통신)
+// ===========================================================================
+
 const express = require('express')
 const bodyParser =require('body-parser')
 
@@ -9,18 +13,19 @@ const {initWallet,getPublicKeyFromWallet} = require('./r_wallet');
 
 //env 설정하기 : export HTTP_PORT=3001
 //env 설정확인 : env | grep HTTP_PORT
-const http_port = process.env.HTTP_PORT || 3001
-const http_port2 = 3002
+const http_port = process.env.HTTP_PORT || 3001;
+
 const p2p_port = process.env.P2P_PORT || 6001;
 
 
 console.log("외부")
 function initHttpServer(httpport){
+    
     console.log("내부")
     const app = express()
     app.use(bodyParser.json())
-
-
+    
+    
     app.get("/peers",(req,res)=>{
         console.log("피어확인 요청")
         res.send(p2pserver.getSockets().map(s=> s._socket.remoteAddress + ':' + s._socket.remotePort));
@@ -32,10 +37,12 @@ function initHttpServer(httpport){
         p2pserver.connectToPeers(data);
         res.send()
     })
-
+    
+    
+    
     app.get("/blocks",(req,res)=>{ 
         console.log("블록 확인 요청옴")
-        res.send(BC.Blocks)
+        res.send(BC.getBlocks())
     })
     
     // block 채굴(생성)
@@ -44,9 +51,12 @@ function initHttpServer(httpport){
         const data = [req.body.data] || []
         console.log(data)
         const block = BC.nextBlock(data)
-        console.log(block)
+        // console.log(block)
         BC.addBlock(block)
         res.send(BC.getBlocks())
+        /*
+            채굴시 브로드캐스트 날려야할지..
+        */
     })
     
     // 버전 확인
@@ -83,8 +93,9 @@ function initHttpServer(httpport){
 
 }
 
+initWallet();
+p2pserver.connectToPeers(["ws://localhost:6002"]);
 initHttpServer(http_port)
-
 p2pserver.initP2PServer(p2p_port)
 
 
@@ -93,7 +104,7 @@ p2pserver.initP2PServer(p2p_port)
     node httpserver.js &
     curl -X POST http://localhost:3001/stop
     curl -X GET http://localhost:3001/blocks | python3 -m json.tool
-    curl -H "Content-type:application/json" --data "{\"data\" : [\"Anything1\",\"Anything2\"]}" http://localhost:3001/mineBlock
+    curl -H "Content-type:application/json" --data "{\"data\" : \"Anything1\"}" http://localhost:3001/mineBlock
     curl -H "Content-type:application/json" --data "{\"data\" : [\"ws://localhost:6001\"]}" http://localhost:3001/addPeers
     curl -X GET http://localhost:3001/sockets | python3 -m json.tool | grep socket._url
     curl -H "Content-type:application/json" --data "{\"data\" : 1}" http://localhost:3001/message

@@ -1,5 +1,8 @@
-// 메시지 핸들러, 에러 핸들러, 브로드캐스트 등 p2p 통신 관련 기능을 포함
+
+
+// [ 메시지 핸들러, 에러 핸들러, 브로드캐스트 등 p2p 통신 관련 기능을 포함 ]
 // (노드와 노드 간의 통신)
+// ===========================================================================
 
 const WebSocket = require('ws')
 const BC = require('./r_blockchain')
@@ -11,23 +14,23 @@ function initP2PServer(p2p_port){
     server.on('connection',(ws)=>{
         console.log("connection 3002")
         initConnection(ws)
-        console.log("라스트 블록",BC.getLastBlock())
     })
-
     console.log("Listening websocket port : ", + p2p_port) 
 }
-
 
 function sendBlock(block){
     
 }
 
-
+// 연결시 초기 상태 설정
 function initConnection(ws) {
     sockets.push(ws);
+    console.log("확인용1")
     initMessageHandler(ws)
     initErrorHandler(ws)
+    console.log("확인용2")
     write(ws, queryLatestMsg());
+    console.log("확인용3")
 }
 
 function  getSockets(){ 
@@ -44,12 +47,16 @@ const broadcastLatest = () => {
 
 // 통신이 되어있는 노드 모두에게 메세지 전달
 function broadcast(message) {
+    console.log("broadcast1")
     sockets.forEach( socket =>{
+        console.log("broadcast2")
+        console.log(message)
+        
         write(socket,message)
     })
 }
 
-//클라이언트에서 웹소켓 접속
+// 클라이언트에서 웹소켓 접속
 function connectToPeers(newPeers) {
     newPeers.forEach(peer=>{
         const ws = new WebSocket(peer)
@@ -63,7 +70,6 @@ function connectToPeers(newPeers) {
 }   
 
 
-// Message Handler
 const MessageType = {
     QUERY_LATEST:0, /// 내가 가지고 있는 블럭들중에 가장 최신블록 리턴
     QUERY_ALL:1,  // 내가 가지고 있는 블럭들 모두 리턴
@@ -74,10 +80,10 @@ function initMessageHandler(ws){
     ws.on("message",(data)=>{
         const message = JSON.parse(data)
         if (message === null) {
-            console.log('could not parse received JSON message: ' + data);
+            console.log('메세지가 없거나 제대로 파싱되지 않았습니다. \n data :' + data);
             return
         }
-        console.log('받은 메세지 3002 : ' + JSON.stringify(message));
+        // console.log('받은 메세지 3001 : ' + JSON.stringify(message));
         switch (message.type) {
             case MessageType.QUERY_LATEST:
                 console.log("메세지 0  3002")
@@ -86,7 +92,6 @@ function initMessageHandler(ws){
             case MessageType.QUERY_ALL:
                 console.log("메세지 1  3002")
                 write(ws,responseAllChainMsg());
-                
                 break;
             case MessageType.RESPONSE_BLOCKCHAIN:
                 console.log("메세지 2  3002")
@@ -105,7 +110,7 @@ function initMessageHandler(ws){
 }
 
 function responseLatestMsg(){
-    console.log("마지막 블록은?",BC.getLastBlock());
+    console.log("responseLatestMsg로 옴");
     return ({
         "type": MessageType.RESPONSE_BLOCKCHAIN,
         "data": JSON.stringify([BC.getLastBlock()]) 
@@ -120,73 +125,54 @@ function responseAllChainMsg(){
 
 //블럭데이터 받았을떄
 function handleBlockChainResponse(receivedBlocks){
-    console.log('블럭데이터 받음 : ', receivedBlocks)
-    // const receiveBlocks =JSON.parse(message.data)
-    // const latestRecieveBlock = receiveBlocks[receiveBlocks.length - 1]
-    // // console.log("헤더",latestRecieveBlock.header)
-    // // console.log("헤더인덱스",latestRecieveBlock.header.index)
-    // const { getLastBlock} = require('./r_blockchain')
-    // const latestMyBlock = getLastBlock()
-
-    // console.log('리시브 블락',latestMyBlock)
-    // console.log('내꺼 마지막 블락',latestMyBlock)
-    // console.log("마지막 블락",latestRecieveBlock)
-    // // 데이터로 받은 블록 중에 마지막 블럭의 인덱스가 내가 보유 중인 마지막 블럭의 인덱스보다 클 떄/작을떄
-    // // 작으면 굳이 가져올 필요 없음
-    // if (latestRecieveBlock.header.index > latestMyBlock.header.index){
-    //     // 받은 마지막 블록의 이전 해시값이 내 마지막 블럭일 떄
-    //     if (createHash(latestMyBlock) === latestRecieveBlock.header.previousHash){
-    //         if (addBlock(latestRecieveBlock)){
-    //             broadcast(responseLatestMsg())
-    //         }
-    //         else{
-    //             console.log("Invalid Block!! 3001")
-    //         }
-    //     }
-    //     // 받은 블럭의 전체 크기가 1일 떄
-    //     else if (receiveBlocks.length === 1){
-    //         broadcast(queryAllMsg()) //전체를 다시 달라고 요청
-    //     }
-    //     else { //통째로 갈아끼워야하는 상황
-    //         BC.replaceChain(receiveBlocks)
-    //     }
-    // } 
-    // else {
-    //     console.log("do nothing. 3001")
-    // }
-    //==================================================
+    console.log('블럭데이터 받았습니다.')
+    
+    // 받은 블럭 데이터 값이 없을 떄
     if (receivedBlocks.length === 0) {
         console.log('received block chain size of 0');
         return;
     }
+
+    // 받은 블럭
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
-    console.log("여기여",latestBlockReceived.header.index)
+    // 내 노드가 가진 블록체인의 마지막 블록
+    const latestBlockHeld = BC.getLastBlock();
+    
     if (!BC.isValidBlockStructure(latestBlockReceived)) {
         console.log('block structuture not valid');
         return;
     }
-    const latestBlockHeld = BC.getLastBlock();
-    console.log("요기요",latestBlockHeld.header.index)
+    // const preprepre = receivedBlocks[receivedBlocks.length - 2];
+    // 상대방에게 받은 블록체인의 길이가 내 블록체인의 길이보다 길 경우
     if (latestBlockReceived.header.index > latestBlockHeld.header.index) {
-        console.log('blockchain possibly behind. We got: '
-            + latestBlockHeld.header.index + ' Peer got: ' + latestBlockReceived.header.index);
-        if (BC.createHash(latestBlockHeld) === latestBlockReceived.previousHash) {
-            console.log("받은 라스트블록의 이전 해시값과 현재 라스트블록의 해시가 같을 경우")
+        console.log('받은 블록의 길이 : ', latestBlockReceived.header.index)
+        console.log('내 블록의 길이 : ', latestBlockHeld.header.index)
+        // console.log('받은 마지막 이전블록의 헤더 : ', preprepre)
+        // console.log('내 마지막 블록의 헤더 : ', latestBlockHeld.header)
+        // console.log('내 마지막 블록 해시값 : ', BC.createHash(latestBlockHeld))
+        // console.log('상대 마지막 블록  이전 해시값 : ', latestBlockReceived.header.previousHash)
+
+        // 내 마지막 블록의 해시값과 받은 마지막 블록의 이전 해시값이 때 => 내꺼보다 상대방 블록이 한 개 더 많은 상태
+        if (BC.createHash(latestBlockHeld) === latestBlockReceived.header.previousHash) {
+            console.log("** (업데이트) 마지막 노드 1개 받기 **")
             if (BC.addBlock(latestBlockReceived)) {
                 broadcast(responseLatestMsg());
             }
         }
+        // 받은 블록의 길이가 1개일 떄
         else if (receivedBlocks.length === 1) {
-            console.log('We have to query the chain from our peer');
+            console.log('블록 다시 요청 함');
             broadcast(queryAllMsg());
         }
+
+        // 받은 블록의 길이가 더 길때
         else {
-            console.log('Received blockchain is longer than current blockchain');
+            console.log('** (업데이트) 받은 블록체인으로 교체 **');
             BC.replaceChain(receivedBlocks);
         }
     }
     else {
-        console.log('received blockchain is not longer than received blockchain. Do nothing');
+        console.log('업데이트가 필요없는 최신 블록체인입니다.');
     }
 }
 //메세지 받아서 처리하는것들 위3개
@@ -214,4 +200,4 @@ function closeConnection(ws){
     console.log(`Connection close ${ws.url}`)
     sockets.splice(sockets.indexOf(ws), 1) //초기화
 }
-module.exports = {connectToPeers,getSockets,initP2PServer,broadcast,broadcastLatest}
+module.exports = {connectToPeers,getSockets,initP2PServer,broadcast,broadcastLatest,responseLatestMsg}
